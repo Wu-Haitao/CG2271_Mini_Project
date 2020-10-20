@@ -608,14 +608,14 @@ ARM Macro Assembler    Page 10
               00000000 
 Command Line: --debug --xref --diag_suppress=9931 --cpu=Cortex-M0+ --apcs=inter
 work --depend=.\objects\startup_mkl25z4.d -o.\objects\startup_mkl25z4.o -I.\RTE
-\CMSIS -I.\RTE\Device\MKL25Z128xxx4 -I.\RTE\_Target_1 -I"D:\Program Files\MDK-A
-RM\Pack\ARM\CMSIS\5.6.0\CMSIS\Core\Include" -I"D:\Program Files\MDK-ARM\Pack\AR
-M\CMSIS\5.6.0\CMSIS\RTOS2\Include" -I"D:\Program Files\MDK-ARM\Pack\ARM\CMSIS\5
-.6.0\CMSIS\RTOS2\RTX\Include" -I"D:\Program Files\MDK-ARM\Pack\Keil\Kinetis_KLx
-x_DFP\1.15.0\Device\Include" --predefine="__RTX SETA 1" --predefine="__EVAL SET
-A 1" --predefine="__UVISION_VERSION SETA 529" --predefine="_RTE_ SETA 1" --pred
-efine="MKL25Z128xxx4 SETA 1" --list=.\listings\startup_mkl25z4.lst RTE\Device\M
-KL25Z128xxx4\startup_MKL25Z4.s
+\CMSIS -I.\RTE\Device\MKL25Z128xxx4 -I.\RTE\_Target_1 -IC:\Users\user\AppData\L
+ocal\Arm\Packs\ARM\CMSIS\5.6.0\CMSIS\Core\Include -IC:\Users\user\AppData\Local
+\Arm\Packs\ARM\CMSIS\5.6.0\CMSIS\RTOS2\Include -IC:\Users\user\AppData\Local\Ar
+m\Packs\ARM\CMSIS\5.6.0\CMSIS\RTOS2\RTX\Include -IC:\Users\user\AppData\Local\A
+rm\Packs\Keil\Kinetis_KLxx_DFP\1.15.0\Device\Include --predefine="__RTX SETA 1"
+ --predefine="__EVAL SETA 1" --predefine="__UVISION_VERSION SETA 529" --predefi
+ne="_RTE_ SETA 1" --predefine="MKL25Z128xxx4 SETA 1" --list=.\listings\startup_
+mkl25z4.lst RTE\Device\MKL25Z128xxx4\startup_MKL25Z4.s
 
 
 
