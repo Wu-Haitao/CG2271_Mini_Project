@@ -71,12 +71,13 @@ int running_music[] = {10, 23,
 8, 8, 0, 3, 9, 8, 
 7, 7, 7, 7, 7, 7
 };
-_Bool music = 0;
+//_Bool music = 0;
 uint8_t global_rx = 0x88;
 osSemaphoreId_t mySem;
 osMessageQueueId_t motorMessage;
 osMessageQueueId_t greenLEDMessage;
 osMessageQueueId_t redLEDMessage;
+osMessageQueueId_t musicMessage;
 
 void initGPIO(void)
 {
@@ -199,6 +200,7 @@ void UART2_IRQHandler(void) {
 //Decodes the data from the Serial Port and performs the necessary action
 void tBrain (void *argument) {
 	_Bool isMoving;
+	_Bool music;
 	for (;;) {
 		osSemaphoreAcquire(mySem, osWaitForever);
 		osMessageQueuePut(motorMessage, &global_rx, NULL, 0);
@@ -207,9 +209,10 @@ void tBrain (void *argument) {
 		} else {
 			isMoving = 0;
 		}
+		if (global_rx == 0) music = 1;	
 		osMessageQueuePut(greenLEDMessage, &isMoving, NULL, 0);
 		osMessageQueuePut(redLEDMessage, &isMoving, NULL, 0);
-		
+		osMessageQueuePut(musicMessage, &music, NULL, 0);
 		
 	}
 }
@@ -291,7 +294,7 @@ void tLED_Red (void *argument) {
 		}
 	}
 }
-/*
+
 //Provides audio output
 void tSpecialAudio (void *argument) {
 	for (int i = 0; i < (sizeof(special_music) / sizeof(int)); i++) {
@@ -302,20 +305,25 @@ void tSpecialAudio (void *argument) {
 }
 
 void tAudio (void *argument) {
+	int currentNote = 0;
+	_Bool music = 0;
 	for (;;) {
-		for (int i = 0; i < (sizeof(running_music) / sizeof(int)); i++) {
-			TPM1->MOD = FREQ_TO_MOD(musical_notes[running_music[i]]);
-			TPM1_C0V = (FREQ_TO_MOD(musical_notes[running_music[i]])) / 2;
-			osDelay(200);
-			if (music) {
-				osThreadNew(tSpecialAudio, NULL, NULL);
-				osThreadExit();
-			}
+		osMessageQueueGet(musicMessage, &music, NULL, 0);
+		if (!music) {
+			if (currentNote == sizeof(running_music) / sizeof(int)) {
+			  currentNote = 0;
+		  } else currentNote++;
+		  TPM1->MOD = FREQ_TO_MOD(musical_notes[running_music[currentNote]]);
+		  TPM1_C0V = (FREQ_TO_MOD(musical_notes[running_music[currentNote]])) / 2;
+		  osDelay(200);
+	  } else {
+			osThreadNew(tSpecialAudio, NULL, NULL);
+			osThreadExit();
 		}
-	}
+	}	
 }
 
-*/
+
 int main (void) {
   // System Initialization
   SystemCoreClockUpdate();
@@ -327,11 +335,12 @@ int main (void) {
 	motorMessage = osMessageQueueNew(1, sizeof(uint8_t), NULL);
 	greenLEDMessage = osMessageQueueNew(1, sizeof(_Bool), NULL);
 	redLEDMessage = osMessageQueueNew(1, sizeof(_Bool), NULL);
+	musicMessage = osMessageQueueNew(1, sizeof(_Bool), NULL);
 	osThreadNew(tBrain, NULL, NULL);
   osThreadNew(tMotorControl, NULL, NULL);
   osThreadNew(tLED_Green, NULL, NULL);
 	osThreadNew(tLED_Red, NULL, NULL);
-  //osThreadNew(tAudio, NULL, NULL);
+  osThreadNew(tAudio, NULL, NULL);
   osKernelStart();                      // Start thread execution
   for (;;) {}
 }
