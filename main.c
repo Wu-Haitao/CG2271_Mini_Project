@@ -71,12 +71,12 @@ int running_music[] = {10, 23,
 8, 8, 0, 3, 9, 8, 
 7, 7, 7, 7, 7, 7
 };
-//_Bool music = 0;
-uint8_t global_rx = 0x88;
+
+volatile uint8_t global_rx = 0x88;
 osSemaphoreId_t mySem;
+osEventFlagsId_t LED_Green, LED_Red;
 osMessageQueueId_t motorMessage;
-osMessageQueueId_t greenLEDMessage;
-osMessageQueueId_t redLEDMessage;
+osMessageQueueId_t LEDMessage;
 osMessageQueueId_t musicMessage;
 
 void initGPIO(void)
@@ -203,15 +203,14 @@ void tBrain (void *argument) {
 	_Bool music;
 	for (;;) {
 		osSemaphoreAcquire(mySem, osWaitForever);
-		osMessageQueuePut(motorMessage, &global_rx, NULL, 0);
+		osMessageQueuePut(motorMessage, (uint8_t*)&global_rx, NULL, 0);
 		if (global_rx & 0x77) {
 			isMoving = 1;
 		} else {
 			isMoving = 0;
 		}
 		if (global_rx == 0) music = 1;	
-		osMessageQueuePut(greenLEDMessage, &isMoving, NULL, 0);
-		osMessageQueuePut(redLEDMessage, &isMoving, NULL, 0);
+		osMessageQueuePut(LEDMessage, &isMoving, NULL, 0);
 		osMessageQueuePut(musicMessage, &music, NULL, 0);
 		
 	}
@@ -248,50 +247,67 @@ void LED_On(int LEDPin) {
 }
 
 //Controls LEDs
-void tLED_Green (void *argument) {
-	int currentGreenLED = 0;
-	_Bool flag = 1;
-	_Bool isMoving = 0;
+void tLED (void *argument) {
+	_Bool isMoving;
 	for (;;) {
-		osMessageQueueGet(greenLEDMessage, &isMoving, NULL, 0);
+		osMessageQueueGet(LEDMessage, &isMoving, NULL, 0);
 		if (isMoving) {
-			for (int i = 0; i < 10; i++) {
-				LED_Off(GREEN_LED[i]);
-			}
-			if (currentGreenLED == 0) {
-		  	flag = 1;
-	  	} else if (currentGreenLED == 9) {
-	  		flag = 0;
-  		}
-  		if (flag) {
-  			currentGreenLED += 1;
-  		} else currentGreenLED -= 1;
-		  LED_On(GREEN_LED[currentGreenLED]);
-		  osDelay(100);
-	  } else {
-			currentGreenLED = 0;
-			flag = 1;
-			for (int i = 0; i < 10; i++) {
-				LED_On(GREEN_LED[i]);
-			}
+			osEventFlagsSet(LED_Green, 0x1);
+			osEventFlagsSet(LED_Red, 0x1);
+		} else {
+			osEventFlagsSet(LED_Green, 0x2);
+			osEventFlagsSet(LED_Red, 0x2);
 		}
 	}
 }
-void tLED_Red (void *argument) {
-	_Bool isMoving = 0;
+
+void tLED_Green_Pattern1 (void *argument) {
+	int currentGreenLED = 0;
+	_Bool flag = 1;
 	for (;;) {
-		osMessageQueueGet(redLEDMessage, &isMoving, NULL, 0);
-		if (isMoving) {
-			LED_On(RED_LED);
-			osDelay(500);
-			LED_Off(RED_LED);
-			osDelay(500);
-		} else {
-			LED_On(RED_LED);
-			osDelay(250);
-			LED_Off(RED_LED);
-			osDelay(250);
+		osEventFlagsWait(LED_Green, 0x1, osFlagsWaitAny, osWaitForever);
+		for (int i = 0; i < 10; i++) {
+			LED_Off(GREEN_LED[i]);
 		}
+		if (currentGreenLED == 0) {
+			flag = 1;
+	  } else if (currentGreenLED == 9) {
+	  	flag = 0;
+  	}
+  	if (flag) {
+			currentGreenLED += 1;
+  	} else currentGreenLED -= 1;
+		LED_On(GREEN_LED[currentGreenLED]);
+		osDelay(100);
+	}
+}
+
+void tLED_Green_Pattern2 (void *argument) {
+	for (;;) {
+		osEventFlagsWait(LED_Green, 0x2, osFlagsWaitAny, osWaitForever);
+		for (int i = 0; i < 10; i++) {
+		  LED_On(GREEN_LED[i]);
+	  }
+	}
+}
+
+void tLED_Red_Pattern1 (void *argument) {
+	for (;;) {
+		osEventFlagsWait(LED_Red, 0x1, osFlagsWaitAny, osWaitForever);
+		LED_On(RED_LED);
+		osDelay(500);
+		LED_Off(RED_LED);
+		osDelay(500);
+	}
+}
+
+void tLED_Red_Pattern2 (void *argument) {
+  for (;;) {
+		osEventFlagsWait(LED_Red, 0x2, osFlagsWaitAny, osWaitForever);
+		LED_On(RED_LED);
+		osDelay(250);
+		LED_Off(RED_LED);
+		osDelay(250);
 	}
 }
 
@@ -333,13 +349,17 @@ int main (void) {
   osKernelInitialize();                 // Initialize CMSIS-RTOS
 	mySem = osSemaphoreNew(1, 0, NULL);
 	motorMessage = osMessageQueueNew(1, sizeof(uint8_t), NULL);
-	greenLEDMessage = osMessageQueueNew(1, sizeof(_Bool), NULL);
-	redLEDMessage = osMessageQueueNew(1, sizeof(_Bool), NULL);
+	LEDMessage = osMessageQueueNew(1, sizeof(_Bool), NULL);
 	musicMessage = osMessageQueueNew(1, sizeof(_Bool), NULL);
+	LED_Green = osEventFlagsNew(NULL);
+	LED_Red = osEventFlagsNew(NULL);
 	osThreadNew(tBrain, NULL, NULL);
   osThreadNew(tMotorControl, NULL, NULL);
-  osThreadNew(tLED_Green, NULL, NULL);
-	osThreadNew(tLED_Red, NULL, NULL);
+	osThreadNew(tLED, NULL, NULL);
+  osThreadNew(tLED_Green_Pattern1, NULL, NULL);
+  osThreadNew(tLED_Green_Pattern2, NULL, NULL);
+	osThreadNew(tLED_Red_Pattern1, NULL, NULL);
+	osThreadNew(tLED_Red_Pattern2, NULL, NULL);
   osThreadNew(tAudio, NULL, NULL);
   osKernelStart();                      // Start thread execution
   for (;;) {}
