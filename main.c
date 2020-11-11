@@ -14,6 +14,7 @@
 #define RED_LED 16
 int GREEN_LED[] = {7, 0, 3, 4, 5, 6, 10, 11, 12, 13};
 int musical_notes[] = {0, 262, 294, 330, 349, 392, 440, 494, 523, 587, 659, 698, 784, 880, 988, 1046, 1175, 1318, 1397, 1568, 1760, 1976, 554, 622, 740, 831, 932};
+int begin_music[] = {8, 9, 10, 8, 8, 9, 10, 8, 10, 11, 12, 12, 10, 11, 12, 12};
 int special_music[] = {10, 10, 10, 10, 10, 10, 10, 10, 
 9, 9, 9, 9, 9, 9, 9, 9, 
 8, 8, 8, 8, 8, 8, 8, 8, 
@@ -197,10 +198,16 @@ void UART2_IRQHandler(void) {
 	}
 }
 
+void tBTBegin(void *);
+void tLED(void *);
+void tAudio(void *);
+
 //Decodes the data from the Serial Port and performs the necessary action
 void tBrain (void *argument) {
 	_Bool isMoving;
 	_Bool music;
+	osSemaphoreAcquire(mySem, osWaitForever);
+	osThreadNew(tBTBegin, NULL, NULL);
 	for (;;) {
 		osSemaphoreAcquire(mySem, osWaitForever);
 		osMessageQueuePut(motorMessage, (uint8_t*)&global_rx, NULL, 0);
@@ -316,7 +323,7 @@ void tSpecialAudio (void *argument) {
 	for (int i = 0; i < (sizeof(special_music) / sizeof(int)); i++) {
 			TPM1->MOD = FREQ_TO_MOD(musical_notes[special_music[i]]);
 			TPM1_C0V = (FREQ_TO_MOD(musical_notes[special_music[i]])) / 2;
-			osDelay(200);
+			osDelay(100);
 	}
 }
 
@@ -339,6 +346,20 @@ void tAudio (void *argument) {
 	}	
 }
 
+void tBTBegin (void *argument) {
+	for (int i = 0; i < (sizeof(begin_music) / sizeof(int)); i++) {
+		osDelay(200);
+		LED_On(GREEN_LED[0]);
+		LED_On(GREEN_LED[9]);
+		TPM1->MOD = FREQ_TO_MOD(musical_notes[begin_music[i]]);
+		TPM1_C0V = (FREQ_TO_MOD(musical_notes[begin_music[i]])) / 2;
+		osDelay(200);
+		LED_Off(GREEN_LED[0]);
+		LED_Off(GREEN_LED[9]);
+	}
+	osThreadNew(tLED, NULL, NULL);
+	osThreadNew(tAudio, NULL, NULL);
+}
 
 int main (void) {
   // System Initialization
@@ -355,12 +376,12 @@ int main (void) {
 	LED_Red = osEventFlagsNew(NULL);
 	osThreadNew(tBrain, NULL, NULL);
   osThreadNew(tMotorControl, NULL, NULL);
-	osThreadNew(tLED, NULL, NULL);
+	//osThreadNew(tLED, NULL, NULL);
   osThreadNew(tLED_Green_Pattern1, NULL, NULL);
   osThreadNew(tLED_Green_Pattern2, NULL, NULL);
 	osThreadNew(tLED_Red_Pattern1, NULL, NULL);
 	osThreadNew(tLED_Red_Pattern2, NULL, NULL);
-  osThreadNew(tAudio, NULL, NULL);
+  //osThreadNew(tAudio, NULL, NULL);
   osKernelStart();                      // Start thread execution
   for (;;) {}
 }
